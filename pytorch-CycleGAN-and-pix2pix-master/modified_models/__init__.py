@@ -29,7 +29,7 @@ def find_model_using_name(model_name):
     This function will search through the models folder and look for a file named <model_name>_model.py.
     It will then import the file and look for a class named <ModelName>Model, e.g., CycleGANModel for the name cyclegan.
     """
-    model_filename = "models." + model_name + "_model"
+    model_filename = "modified_models." + model_name + "_model"
     modellib = importlib.import_module(model_filename)
 
     model = None
