@@ -23,6 +23,11 @@ from options.train_options import TrainOptions
 from data import create_dataset
 from models import create_model
 from util.visualizer import Visualizer
+import sys
+sys.path.append('/content/modified_CycleGAN/pytorch-CycleGAN-and-pix2pix-master/options')
+sys.path.append('/content/modified_CycleGAN/pytorch-CycleGAN-and-pix2pix-master/models')
+sys.path.append('/content/modified_CycleGAN/pytorch-CycleGAN-and-pix2pix-master/modified_models')
+
 
 if __name__ == '__main__':
     opt = TrainOptions().parse()   # get training options
