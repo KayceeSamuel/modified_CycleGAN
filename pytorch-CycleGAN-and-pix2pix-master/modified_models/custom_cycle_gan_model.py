@@ -3,8 +3,12 @@ import itertools
 from util.image_pool import ImagePool
 from .base_model import BaseModel
 #from . import networks
+import torchvision
+
 from torch.nn import L1Loss
+
 from torchvision.models import vgg19
+
 
 import modified_models as models
 from modified_models import networks
