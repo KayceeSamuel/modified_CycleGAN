@@ -69,7 +69,7 @@ class CustomCycleGANModel(BaseModel):
                                         not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
 
         if self.isTrain:
-            use_sigmoid = opt.no_lsgan
+            use_sigmoid = False
             self.netD_A = networks.define_D(opt.output_nc, opt.ndf, opt.netD,
                                             opt.n_layers_D, opt.norm, use_sigmoid, opt.init_type, opt.init_gain, self.gpu_ids)
             self.netD_B = networks.define_D(opt.input_nc, opt.ndf, opt.netD,
