@@ -59,65 +59,57 @@ class CustomCycleGANModel(BaseModel):
         return parser
 
     def __init__(self, opt):
-        """Initialize the CustomCycleGANModel class.
-
-        Parameters:
-            opt (Option class)-- stores all the experiment flags; needs to be a subclass of BaseOptions
-        """
         BaseModel.__init__(self, opt)
-        self.loss_names = ['G_A', 'D_A', 'cycle_A', 'idt_A', 'G_B', 'D_B', 'cycle_B', 'idt_B', 'feature_loss']
-        self.visual_names = ['real_A', 'fake_B', 'rec_A', 'idt_A', 'real_B', 'fake_A', 'rec_B', 'idt_B']
+        self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B']
+        self.visual_names = ['real_A', 'fake_B', 'rec_A', 'real_B', 'fake_A', 'rec_B', 'idt_A', 'idt_B']
         self.model_names = ['G_A', 'G_B', 'D_A', 'D_B']
-
-        # define networks (both Generators and discriminators)
-        # The naming conversion is different from those used in the paper.
-        # Code (vs. paper): G_A (G), G_B (F), D_A (D_Y), D_B (D_X)
-        self.netG_A = self.define_G(opt.input_nc, opt.output_nc, opt.ngf)
-        self.netG_B = self.define_G(opt.output_nc, opt.input_nc, opt.ngf)
-
-        # Move models to the device
-        self.netG_A = self.netG_A.to(self.device)
-        self.netG_B = self.netG_B.to(self.device)
-        self.netD_A = self.netD_A.to(self.device)
-        self.netD_B = self.netD_B.to(self.device)
-
-        # Freeze initial layers of the generators
-        freeze_layers = 10
-        for i, layer in enumerate(self.netG_A.children()):
-            if i < freeze_layers:
-                for param in layer.parameters():
-                    param.requires_grad = False
-
-        for i, layer in enumerate(self.netG_B.children()):
-            if i < freeze_layers:
-                for param in layer.parameters():
-                    param.requires_grad = False
+        self.netG_A = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm,
+                                        not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
+        self.netG_B = networks.define_G(opt.output_nc, opt.input_nc, opt.ngf, opt.netG, opt.norm,
+                                        not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
 
         if self.isTrain:
-                self.netD_A = networks.define_D(opt.output_nc, opt.ndf, opt.netD,
-                                        opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
-                self.netD_B = networks.define_D(opt.input_nc, opt.ndf, opt.netD,
-                                        opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
+            use_sigmoid = opt.no_lsgan
+            self.netD_A = networks.define_D(opt.output_nc, opt.ndf, opt.netD,
+                                            opt.n_layers_D, opt.norm, use_sigmoid, opt.init_type, opt.init_gain, self.gpu_ids)
+            self.netD_B = networks.define_D(opt.input_nc, opt.ndf, opt.netD,
+                                            opt.n_layers_D, opt.norm, use_sigmoid, opt.init_type, opt.init_gain, self.gpu_ids)
 
-        # create image buffer to store previously generated images
-        self.fake_A_pool = ImagePool(opt.pool_size)
-        self.fake_B_pool = ImagePool(opt.pool_size)
+        self.fake_A_pool = ImagePool(opt.pool_size)  # create image buffer to store previously generated images
+        self.fake_B_pool = ImagePool(opt.pool_size)  # create image buffer to store previously generated images
+        self.criterionGAN = networks.GANLoss(use_lsgan=not opt.no_lsgan).to(self.device)  # define GAN loss.
+        self.criterionCycle = torch.nn.L1Loss()
+        self.criterionIdt = torch.nn.L1Loss()
+        self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG_A.parameters(), self.netG_B.parameters()),
+                                            lr=opt.lr, betas=(opt.beta1, 0.999))
+        self.optimizer_D = torch.optim.Adam(itertools.chain(self.netD_A.parameters(), self.netD_B.parameters()),
+                                            lr=opt.lr, betas=(opt.beta1, 0.999))
+        self.optimizers = []
+        self.optimizers.append(self.optimizer_G)
+        self.optimizers.append(self.optimizer_D)
 
+        # Freezing the initial layers of the generators
+        freeze_layers = 3  # Number of initial layers to freeze
+        for idx, param in enumerate(self.netG_A.parameters()):
+            if idx < freeze_layers:
+                param.requires_grad = False
+
+        for idx, param in enumerate(self.netG_B.parameters()):
+            if idx < freeze_layers:
+                param.requires_grad = False
+
+        # VGG feature loss
         self.criterionFeature = torch.nn.L1Loss()
         self.vgg = torchvision.models.vgg19(pretrained=True).features.to(self.device).eval()
         for param in self.vgg.parameters():
             param.requires_grad = False
 
-        # define loss functions
-        self.criterionGAN = networks.GANLoss(opt.gan_mode).to(self.device)  # define GAN loss.
-        self.criterionCycle = torch.nn.L1Loss()
-        self.criterionIdt = torch.nn.L1Loss()
+        # Move models to device
+        self.netG_A = self.netG_A.to(self.device)
+        self.netG_B = self.netG_B.to(self.device)
+        self.netD_A = self.netD_A.to(self.device)
+        self.netD_B = self.netD_B.to(self.device)
 
-        # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
-        self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG_A.parameters(), self.netG_B.parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))
-        self.optimizer_D = torch.optim.Adam(itertools.chain(self.netD_A.parameters(), self.netD_B.parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))
-        self.optimizers.append(self.optimizer_G)
-        self.optimizers.append(self.optimizer_D)
 
     def extract_features(self, input):
         features = []
