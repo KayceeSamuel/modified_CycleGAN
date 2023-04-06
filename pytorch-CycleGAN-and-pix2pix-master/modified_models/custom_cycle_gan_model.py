@@ -60,21 +60,21 @@ class CustomCycleGANModel(BaseModel):
         Parameters:
             opt (Option class)-- stores all the experiment flags; needs to be a subclass of BaseOptions
         """
-    BaseModel.__init__(self, opt)
-    self.loss_names = ['G_A', 'D_A', 'cycle_A', 'idt_A', 'G_B', 'D_B', 'cycle_B', 'idt_B', 'feature_loss']
-    self.visual_names = ['real_A', 'fake_B', 'rec_A', 'idt_A', 'real_B', 'fake_A', 'rec_B', 'idt_B']
-    self.model_names = ['G_A', 'G_B', 'D_A', 'D_B']
+        BaseModel.__init__(self, opt)
+        self.loss_names = ['G_A', 'D_A', 'cycle_A', 'idt_A', 'G_B', 'D_B', 'cycle_B', 'idt_B', 'feature_loss']
+        self.visual_names = ['real_A', 'fake_B', 'rec_A', 'idt_A', 'real_B', 'fake_A', 'rec_B', 'idt_B']
+        self.model_names = ['G_A', 'G_B', 'D_A', 'D_B']
 
-    # define networks (both Generators and discriminators)
-    # The naming conversion is different from those used in the paper.
-    # Code (vs. paper): G_A (G), G_B (F), D_A (D_Y), D_B (D_X)
-    self.netG_A = self.define_G(opt.input_nc, opt.output_nc, opt.ngf)
-    self.netG_B = self.define_G(opt.output_nc, opt.input_nc, opt.ngf)
+        # define networks (both Generators and discriminators)
+        # The naming conversion is different from those used in the paper.
+        # Code (vs. paper): G_A (G), G_B (F), D_A (D_Y), D_B (D_X)
+        self.netG_A = self.define_G(opt.input_nc, opt.output_nc, opt.ngf)
+        self.netG_B = self.define_G(opt.output_nc, opt.input_nc, opt.ngf)
 
-    if self.isTrain:
-        self.netD_A = networks.define_D(opt.output_nc, opt.ndf, opt.netD,
+        if self.isTrain:
+                self.netD_A = networks.define_D(opt.output_nc, opt.ndf, opt.netD,
                                         opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
-        self.netD_B = networks.define_D(opt.input_nc, opt.ndf, opt.netD,
+                self.netD_B = networks.define_D(opt.input_nc, opt.ndf, opt.netD,
                                         opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
 
         # create image buffer to store previously generated images
