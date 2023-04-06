@@ -2,10 +2,13 @@ import torch
 import itertools
 from util.image_pool import ImagePool
 from .base_model import BaseModel
-from . import networks
+#from . import networks
 from torch.nn import L1Loss
 from torchvision.models import vgg19
-from pix2pixHD.models.networks import GlobalGenerator, get_norm_layer
+import sys
+sys.path.append('/content/pix2pixHD')
+
+from models.networks import GlobalGenerator as HDGlobalGenerator, get_norm_layer as HDget_norm_layer
 
 
 class CustomCycleGANModel(BaseModel):
@@ -48,75 +51,47 @@ class CustomCycleGANModel(BaseModel):
         return parser
 
     def __init__(self, opt):
-        """Initialize the CycleGAN class.
+        """Initialize the CustomCycleGANModel class.
 
         Parameters:
             opt (Option class)-- stores all the experiment flags; needs to be a subclass of BaseOptions
         """
-        BaseModel.__init__(self, opt)
-        # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
-        self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B']
-        # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
-        visual_names_A = ['real_A', 'fake_B', 'rec_A']
-        visual_names_B = ['real_B', 'fake_A', 'rec_B']
-        if self.isTrain and self.opt.lambda_identity > 0.0:  # if identity loss is used, we also visualize idt_B=G_A(B) ad idt_A=G_A(B)
-            visual_names_A.append('idt_B')
-            visual_names_B.append('idt_A')
+    BaseModel.__init__(self, opt)
+    self.loss_names = ['G_A', 'D_A', 'cycle_A', 'idt_A', 'G_B', 'D_B', 'cycle_B', 'idt_B', 'feature_loss']
+    self.visual_names = ['real_A', 'fake_B', 'rec_A', 'idt_A', 'real_B', 'fake_A', 'rec_B', 'idt_B']
+    self.model_names = ['G_A', 'G_B', 'D_A', 'D_B']
 
-        self.visual_names = visual_names_A + visual_names_B  # combine visualizations for A and B
-        # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>.
-        if self.isTrain:
-            self.model_names = ['G_A', 'G_B', 'D_A', 'D_B']
-        else:  # during test time, only load Gs
-            self.model_names = ['G_A', 'G_B']
+    # define networks (both Generators and discriminators)
+    # The naming conversion is different from those used in the paper.
+    # Code (vs. paper): G_A (G), G_B (F), D_A (D_Y), D_B (D_X)
+    self.netG_A = self.define_G(opt.input_nc, opt.output_nc, opt.ngf)
+    self.netG_B = self.define_G(opt.output_nc, opt.input_nc, opt.ngf)
 
-        # define networks (both Generators and discriminators)
-        # The naming is different from those used in the paper.
-        # Code (vs. paper): G_A (G), G_B (F), D_A (D_Y), D_B (D_X)
-         # Load the pretrained generator from pix2pixHD
-        input_nc = self.opt.input_nc
-        output_nc = self.opt.output_nc
-        ngf = 64
-        n_downsample_global = 4
-        n_blocks_global = 9
-        n_local_enhancers = 1
-        n_blocks_local = 3
-        norm_layer = get_norm_layer(norm_type=self.opt.norm)
-        netG = GlobalGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=not self.opt.no_dropout, n_downsample_global=n_downsample_global, n_blocks_global=n_blocks_global, n_local_enhancers=n_local_enhancers, n_blocks_local=n_blocks_local)
+    if self.isTrain:
+        self.netD_A = networks.define_D(opt.output_nc, opt.ndf, opt.netD,
+                                        opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
+        self.netD_B = networks.define_D(opt.input_nc, opt.ndf, opt.netD,
+                                        opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
 
+        # create image buffer to store previously generated images
+        self.fake_A_pool = ImagePool(opt.pool_size)
+        self.fake_B_pool = ImagePool(opt.pool_size)
 
-        G_path = '/content/drive/MyDrive/combinedpix_cyleGAN/32_net_G.pth'
-        G_state_dict = torch.load(G_path)
-        netG.load_state_dict(G_state_dict)
-
-        self.netG_A = netG
-        self.netG_B = netG
-
-        self.criterionFeature = L1Loss()
-        self.vgg = vgg19(pretrained=True).features.to(self.device).eval()
+        self.criterionFeature = torch.nn.L1Loss()
+        self.vgg = torchvision.models.vgg19(pretrained=True).features.to(self.device).eval()
         for param in self.vgg.parameters():
             param.requires_grad = False
 
-        if self.isTrain:  # define discriminators
-            self.netD_A = networks.define_D(opt.output_nc, opt.ndf, opt.netD,
-                                            opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
-            self.netD_B = networks.define_D(opt.input_nc, opt.ndf, opt.netD,
-                                            opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
+        # define loss functions
+        self.criterionGAN = networks.GANLoss(opt.gan_mode).to(self.device)  # define GAN loss.
+        self.criterionCycle = torch.nn.L1Loss()
+        self.criterionIdt = torch.nn.L1Loss()
 
-        if self.isTrain:
-            if opt.lambda_identity > 0.0:  # only works when input and output images have the same number of channels
-                assert(opt.input_nc == opt.output_nc)
-            self.fake_A_pool = ImagePool(opt.pool_size)  # create image buffer to store previously generated images
-            self.fake_B_pool = ImagePool(opt.pool_size)  # create image buffer to store previously generated images
-            # define loss functions
-            self.criterionGAN = networks.GANLoss(opt.gan_mode).to(self.device)  # define GAN loss.
-            self.criterionCycle = torch.nn.L1Loss()
-            self.criterionIdt = torch.nn.L1Loss()
-            # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
-            self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG_A.parameters(), self.netG_B.parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))
-            self.optimizer_D = torch.optim.Adam(itertools.chain(self.netD_A.parameters(), self.netD_B.parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))
-            self.optimizers.append(self.optimizer_G)
-            self.optimizers.append(self.optimizer_D)
+        # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
+        self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG_A.parameters(), self.netG_B.parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))
+        self.optimizer_D = torch.optim.Adam(itertools.chain(self.netD_A.parameters(), self.netD_B.parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))
+        self.optimizers.append(self.optimizer_G)
+        self.optimizers.append(self.optimizer_D)
 
     def extract_features(self, input):
         features = []
@@ -229,6 +204,20 @@ class CustomCycleGANModel(BaseModel):
         self.backward_D_A()      # calculate gradients for D_A
         self.backward_D_B()      # calculate graidents for D_B
         self.optimizer_D.step()  # update D_A and D_B's weights
+
+    
+    def define_G(self, input_nc, output_nc, ngf):
+        n_downsample_global = 4
+        n_blocks_global = 9
+        n_local_enhancers = 1
+        n_blocks_local = 3
+        netG = HDGlobalGenerator(input_nc, output_nc, ngf, 'global', n_downsample_global, n_blocks_global, n_local_enhancers, n_blocks_local)
+
+        G_path = '/content/drive/MyDrive/combinedpix_cyleGAN/32_net_G.pth'
+        G_state_dict = torch.load(G_path)
+        netG.load_state_dict(G_state_dict)
+
+        return netG
 
 
 
