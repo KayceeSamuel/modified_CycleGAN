@@ -215,8 +215,7 @@ class CustomCycleGANModel(BaseModel):
         n_blocks_global = 9
         n_local_enhancers = 1
         n_blocks_local = 3
-        netG = HDGlobalGenerator(input_nc, output_nc, ngf, 'global', n_downsample_global, n_blocks_global, n_local_enhancers, n_blocks_local)
-
+        netG = HDGlobalGenerator(input_nc, output_nc, ngf, n_downsampling=n_downsample_global, n_blocks=n_blocks_global, norm_layer=HDget_norm_layer(norm_type='instance'), padding_type='reflect')
         G_path = '/content/drive/MyDrive/combinedpix_cyleGAN/32_net_G.pth'
         G_state_dict = torch.load(G_path)
         netG.load_state_dict(G_state_dict)
