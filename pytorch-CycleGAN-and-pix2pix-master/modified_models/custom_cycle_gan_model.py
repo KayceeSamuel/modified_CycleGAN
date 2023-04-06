@@ -5,6 +5,10 @@ from .base_model import BaseModel
 #from . import networks
 from torch.nn import L1Loss
 from torchvision.models import vgg19
+
+import modified_models as models
+from modified_models import networks
+from modified_models.cycle_gan_model import CycleGANModel
 import sys
 sys.path.append('/content/pix2pixHD')
 
