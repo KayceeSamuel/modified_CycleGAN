@@ -5,7 +5,7 @@ from .base_model import BaseModel
 from . import networks
 from torch.nn import L1Loss
 from torchvision.models import vgg19
-
+from pix2pixHD.models.networks import GlobalGenerator, get_norm_layer
 
 
 class CustomCycleGANModel(BaseModel):
@@ -81,7 +81,9 @@ class CustomCycleGANModel(BaseModel):
         n_blocks_global = 9
         n_local_enhancers = 1
         n_blocks_local = 3
-        netG = networks.define_G(input_nc, output_nc, ngf, 'global', n_downsample_global, n_blocks_global, n_local_enhancers, n_blocks_local)
+        norm_layer = get_norm_layer(norm_type=self.opt.norm)
+        netG = GlobalGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=not self.opt.no_dropout, n_downsample_global=n_downsample_global, n_blocks_global=n_blocks_global, n_local_enhancers=n_local_enhancers, n_blocks_local=n_blocks_local)
+
 
         G_path = '/content/drive/MyDrive/combinedpix_cyleGAN/32_net_G.pth'
         G_state_dict = torch.load(G_path)
