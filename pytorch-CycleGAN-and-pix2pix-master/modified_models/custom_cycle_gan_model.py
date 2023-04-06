@@ -71,10 +71,10 @@ class CustomCycleGANModel(BaseModel):
         if self.isTrain:
             use_sigmoid = False
             self.netD_A = networks.define_D(opt.output_nc, opt.ndf, opt.netD,
-                                opt.n_layers_D, opt.norm, use_sigmoid, opt.init_type, opt.init_gain, self.gpu_ids)
+                                    opt.n_layers_D, opt.norm, use_sigmoid, opt.init_type, opt.init_gain, self.gpu_ids, self.device)
 
             self.netD_B = networks.define_D(opt.input_nc, opt.ndf, opt.netD,
-                                opt.n_layers_D, opt.norm, use_sigmoid, opt.init_type, opt.init_gain, self.gpu_ids)
+                                    opt.n_layers_D, opt.norm, use_sigmoid, opt.init_type, opt.init_gain, self.gpu_ids, self.device)
 
         self.fake_A_pool = ImagePool(opt.pool_size)  # create image buffer to store previously generated images
         self.fake_B_pool = ImagePool(opt.pool_size)  # create image buffer to store previously generated images
