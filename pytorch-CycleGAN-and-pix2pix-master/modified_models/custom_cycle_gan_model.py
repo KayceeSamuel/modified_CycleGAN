@@ -75,6 +75,24 @@ class CustomCycleGANModel(BaseModel):
         self.netG_A = self.define_G(opt.input_nc, opt.output_nc, opt.ngf)
         self.netG_B = self.define_G(opt.output_nc, opt.input_nc, opt.ngf)
 
+        # Move models to the device
+        self.netG_A = self.netG_A.to(self.device)
+        self.netG_B = self.netG_B.to(self.device)
+        self.netD_A = self.netD_A.to(self.device)
+        self.netD_B = self.netD_B.to(self.device)
+
+        # Freeze initial layers of the generators
+        freeze_layers = 10
+        for i, layer in enumerate(self.netG_A.children()):
+            if i < freeze_layers:
+                for param in layer.parameters():
+                    param.requires_grad = False
+
+        for i, layer in enumerate(self.netG_B.children()):
+            if i < freeze_layers:
+                for param in layer.parameters():
+                    param.requires_grad = False
+
         if self.isTrain:
                 self.netD_A = networks.define_D(opt.output_nc, opt.ndf, opt.netD,
                                         opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
