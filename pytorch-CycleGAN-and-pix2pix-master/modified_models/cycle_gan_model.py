@@ -45,11 +45,6 @@ class CycleGANModel(BaseModel):
         return parser
 
     def __init__(self, opt):
-        """Initialize the CustomCycleGAN class.
-
-        Parameters:
-            opt (Option class)-- stores all the experiment flags; needs to be a subclass of BaseOptions
-        """
         BaseModel.__init__(self, opt)
         self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B', 'feature']
         visual_names_A = ['real_A', 'fake_B', 'rec_A']
@@ -70,10 +65,11 @@ class CycleGANModel(BaseModel):
                                         not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
 
         if self.isTrain:
+            use_sigmoid = not opt.no_lsgan
             self.netD_A = networks.define_D(opt.output_nc, opt.ndf, opt.netD,
-                                            opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
+                                            opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids, use_sigmoid=use_sigmoid)
             self.netD_B = networks.define_D(opt.input_nc, opt.ndf, opt.netD,
-                                            opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
+                                            opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids, use_sigmoid=use_sigmoid)
 
         if self.isTrain:
             if opt.lambda_identity > 0.0:
@@ -91,6 +87,7 @@ class CycleGANModel(BaseModel):
             self.optimizer_D = torch.optim.Adam(itertools.chain(self.netD_A.parameters(), self.netD_B.parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
             self.optimizers.append(self.optimizer_D)
+
 
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
