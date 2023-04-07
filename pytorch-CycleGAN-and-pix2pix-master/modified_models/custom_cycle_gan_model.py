@@ -81,6 +81,17 @@ class CustomCycleGANModel(BaseModel):
         # Load pretrained weights for netG_A and netG_B
         G_path = '/content/drive/MyDrive/combinedpix_cyleGAN/32_net_G.pth'
         G_state_dict = torch.load(G_path)
+
+        # Add "module." prefix to the keys in G_state_dict
+        G_state_dict = {f'module.{k}': v for k, v in G_state_dict.items()}
+
+        # Filter out unexpected keys and update the size of mismatched keys
+        expected_keys = set(self.netG_A.state_dict().keys())
+        G_state_dict = {k: v for k, v in G_state_dict.items() if k in expected_keys}
+        for key, value in G_state_dict.items():
+            if value.shape != self.netG_A.state_dict()[key].shape:
+                G_state_dict[key] = torch.randn_like(self.netG_A.state_dict()[key])
+
         self.netG_A.load_state_dict(G_state_dict)
 
         if self.isTrain:
