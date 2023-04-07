@@ -91,13 +91,18 @@ class CustomCycleGANModel(BaseModel):
                 assert(opt.input_nc == opt.output_nc)
             self.fake_A_pool = ImagePool(opt.pool_size)
             self.fake_B_pool = ImagePool(opt.pool_size)
-            self.criterionGAN = networks.GANLoss(use_lsgan=not opt.no_lsgan).to(self.device)
+            self.criterionGAN = networks.GANLoss(gan_mode='lsgan').to(self.device)
             self.criterionCycle = torch.nn.L1Loss()
             self.criterionIdt = torch.nn.L1Loss()
             self.criterionFeature = torch.nn.L1Loss()
+
             self.vgg = torchvision.models.vgg19(pretrained=True).features.to(self.device).eval()
             for param in self.vgg.parameters():
                 param.requires_grad = False
+
+            # add feature matching loss initialization
+            self.loss_feature = 0.0
+
             self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG_A.parameters(), self.netG_B.parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizer_D = torch.optim.Adam(itertools.chain(self.netD_A.parameters(), self.netD_B.parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
