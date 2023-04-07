@@ -78,6 +78,11 @@ class CustomCycleGANModel(BaseModel):
         self.netG_B = networks.define_G(opt.output_nc, opt.input_nc, opt.ngf, opt.netG, opt.norm,
                                         not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
 
+        # Load pretrained weights for netG_A and netG_B
+        G_path = '/content/drive/MyDrive/combinedpix_cyleGAN/32_net_G.pth'
+        G_state_dict = torch.load(G_path)
+        self.netG_A.load_state_dict(G_state_dict)
+
         if self.isTrain:
             use_sigmoid = False
             self.gpu_ids = opt.gpu_ids
