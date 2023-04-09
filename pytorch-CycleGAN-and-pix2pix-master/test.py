@@ -29,7 +29,7 @@ See frequently asked questions at: https://github.com/junyanz/pytorch-CycleGAN-a
 import os
 from options.test_options import TestOptions
 from data import create_dataset
-from models import create_model
+from modified_models import create_model
 from util.visualizer import save_images
 from util import html
 
