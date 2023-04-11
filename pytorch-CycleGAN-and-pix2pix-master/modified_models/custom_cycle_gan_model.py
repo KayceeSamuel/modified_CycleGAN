@@ -16,7 +16,10 @@ from modified_models.cycle_gan_model import CycleGANModel
 import sys
 sys.path.append('/content/pix2pixHD')
 
-from models.networks import GlobalGenerator as HDGlobalGenerator, get_norm_layer as HDget_norm_layer
+#from models.networks import GlobalGenerator as HDGlobalGenerator, get_norm_layer as HDget_norm_layer
+from modified_models.networks import ResnetGenerator, get_norm_layer
+
+
 
 
 class CustomCycleGANModel(BaseModel):
@@ -239,15 +242,23 @@ class CustomCycleGANModel(BaseModel):
         self.optimizer_D.step()  # update D_A and D_B's weights
 
     
+    # def define_G(self, input_nc, output_nc, ngf):
+    #     n_downsample_global = 4
+    #     n_blocks_global = 9
+    #     n_local_enhancers = 1
+    #     n_blocks_local = 3
+    #     netG = HDGlobalGenerator(input_nc, output_nc, ngf, n_downsampling=n_downsample_global, n_blocks=n_blocks_global, norm_layer=HDget_norm_layer(norm_type='instance'), padding_type='reflect')
+    #     G_path = '/content/drive/MyDrive/combinedpix_cyleGAN/32_net_G.pth'
+    #     G_state_dict = torch.load(G_path)
+    #     netG.load_state_dict(G_state_dict)
+
+    #     return netG
     def define_G(self, input_nc, output_nc, ngf):
         n_downsample_global = 4
         n_blocks_global = 9
         n_local_enhancers = 1
         n_blocks_local = 3
-        netG = HDGlobalGenerator(input_nc, output_nc, ngf, n_downsampling=n_downsample_global, n_blocks=n_blocks_global, norm_layer=HDget_norm_layer(norm_type='instance'), padding_type='reflect')
-        G_path = '/content/drive/MyDrive/combinedpix_cyleGAN/32_net_G.pth'
-        G_state_dict = torch.load(G_path)
-        netG.load_state_dict(G_state_dict)
+        netG = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=get_norm_layer(norm_type='instance'), use_dropout=False, n_blocks=n_blocks_global, padding_type='reflect')
 
         return netG
 

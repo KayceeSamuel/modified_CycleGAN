@@ -71,6 +71,10 @@ if __name__ == '__main__':
         if i >= opt.num_test:  # only apply our model to opt.num_test images.
             break
         model.set_input(data)  # unpack data from data loader
+        #remove later
+        input_visuals = {'input': model.get_current_data_visuals()['A']}
+        save_images(webpage, input_visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize, use_wandb=opt.use_wandb, suffix="input")
+
         model.test()           # run inference
         visuals = model.get_current_visuals()  # get image results
         img_path = model.get_image_paths()     # get image paths
